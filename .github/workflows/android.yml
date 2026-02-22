@@ -1,19 +1,48 @@
-- name: Criar Projeto e Copiar Subpastas
+name: Gerar meu APK
+on: [push]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Baixar código
+        uses: actions/checkout@v3
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+
+      - name: Instalar Cordova e Java
         run: |
-          # Cria a estrutura do projeto
-          cordova create build_dir com.meuapp.projeto "Khatmul-Qur'aan Calendar"
-          
-          # Limpa a pasta padrão
-          rm -rf build_dir/www/*
-          
-          # Copia o seu config.xml para a raiz do projeto Cordova
-          cp config.xml build_dir/
-          
-          # Copia o ícone e todos os arquivos/pastas (css, js, img) para a pasta www
-          cp -R . build_dir/www/
-          
-          # Remove arquivos desnecessários da pasta final
-          rm -rf build_dir/www/.github
-          
+          sudo apt-get update
+          sudo apt-get install -y openjdk-17-jdk
+          npm install -g cordova
+
+      - name: Criar Projeto Cordova
+        run: |
+          # Cria o projeto fora da pasta atual para não dar conflito de cópia
+          cd ..
+          cordova create build_dir com.meuapp.projeto "MeuApp"
           cd build_dir
           cordova platform add android
+          
+      - name: Mover arquivos do Usuário
+        run: |
+          # Limpa a pasta padrão e copia seus arquivos (HTML, CSS, JS, etc)
+          rm -rf ../build_dir/www/*
+          cp -R . ../build_dir/www/
+          # Remove a pasta oculta do git para não pesar no APK
+          rm -rf ../build_dir/www/.git
+          rm -rf ../build_dir/www/.github
+
+      - name: Compilar APK
+        run: |
+          cd ../build_dir
+          cordova build android --verbose
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v3
+        with:
+          name: meu-aplicativo-apk
+          path: ../build_dir/platforms/android/app/build/outputs/apk/debug/app-debug.apk
