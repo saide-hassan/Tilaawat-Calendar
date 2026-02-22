@@ -1,0 +1,19 @@
+- name: Criar Projeto e Copiar Subpastas
+        run: |
+          # Cria a estrutura do projeto
+          cordova create build_dir com.meuapp.projeto "Khatmul-Qur'aan Calendar"
+          
+          # Limpa a pasta padrão
+          rm -rf build_dir/www/*
+          
+          # Copia o seu config.xml para a raiz do projeto Cordova
+          cp config.xml build_dir/
+          
+          # Copia o ícone e todos os arquivos/pastas (css, js, img) para a pasta www
+          cp -R . build_dir/www/
+          
+          # Remove arquivos desnecessários da pasta final
+          rm -rf build_dir/www/.github
+          
+          cd build_dir
+          cordova platform add android
