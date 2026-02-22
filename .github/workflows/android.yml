@@ -1,48 +1,116 @@
-name: Gerar meu APK
-on: [push]
+name: Build APK
+
+on:
+  push:
+    branches: [ main, master ]
+    paths:
+      - 'index.html'
+      - 'scripts/**'
+      - 'styles/**'
+      - 'images/**'
+      - '.github/workflows/build-apk.yml'
+  workflow_dispatch:
 
 jobs:
-  build:
+  build-apk:
     runs-on: ubuntu-latest
+    name: Compilar APK Android
+
     steps:
-      - name: Baixar código
-        uses: actions/checkout@v3
+      - name: Checkout código
+        uses: actions/checkout@v4
 
-      - name: Configurar Node.js
-        uses: actions/setup-node@v3
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          node-version: 18
+          node-version: '18'
 
-      - name: Instalar Cordova e Java
+      - name: Setup Java JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Instalar dependências globais
         run: |
-          sudo apt-get update
-          sudo apt-get install -y openjdk-17-jdk
           npm install -g cordova
+          npm install -g gradle
 
-      - name: Criar Projeto Cordova
+      - name: Criar projeto Cordova
         run: |
-          # Cria o projeto fora da pasta atual para não dar conflito de cópia
-          cd ..
-          cordova create build_dir com.meuapp.projeto "MeuApp"
-          cd build_dir
+          cordova create calendario io.github.calendario "Alcorão — 30 Juz"
+          cd calendario
           cordova platform add android
-          
-      - name: Mover arquivos do Usuário
+
+      - name: Copiar arquivos do site
         run: |
-          # Limpa a pasta padrão e copia seus arquivos (HTML, CSS, JS, etc)
-          rm -rf ../build_dir/www/*
-          cp -R . ../build_dir/www/
-          # Remove a pasta oculta do git para não pesar no APK
-          rm -rf ../build_dir/www/.git
-          rm -rf ../build_dir/www/.github
+          cd calendario
+          cp -r ../index.html www/
+          cp -r ../scripts www/
+          cp -r ../styles www/
+          cp -r ../images www/
+          rm www/config.xml || true
+          cat > www/config.xml << 'EOF'
+          <?xml version='1.0' encoding='utf-8'?>
+          <widget id="io.github.calendario" version="1.0.0" xmlns="http://www.w3.org/ns/widgets" xmlns:cdv="http://cordova.apache.org/ns/1.0">
+              <name>Alcorão — 30 Juz</name>
+              <description>Calendário de Khatamul-Qur'an - Leia o Alcorão em 30 dias</description>
+              <author email="saidehassan5@gmail.com">Saide Hassan</author>
+              <content src="index.html" />
+              <access origin="*" />
+              <allow-intent href="http://*/*" />
+              <allow-intent href="https://*/*" />
+              <allow-intent href="tel:*" />
+              <allow-intent href="sms:*" />
+              <allow-intent href="mailto:*" />
+              <allow-intent href="geo:*" />
+              <platform name="android">
+                  <allow-intent href="market:*" />
+              </platform>
+          </widget>
+          EOF
 
       - name: Compilar APK
         run: |
-          cd ../build_dir
-          cordova build android --verbose
+          cd calendario
+          cordova build android --release
+
+      - name: Assinar APK (Debug)
+        run: |
+          cd calendario/platforms/android
+          chmod +x ../../gradlew
+          cd app
+          mkdir -p build/outputs/apk/release
+          cp -r ../../../platforms/android/app/build/outputs/apk/release/*.apk ./build/outputs/apk/release/ 2>/dev/null || true
 
       - name: Upload APK
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
-          name: meu-aplicativo-apk
-          path: ../build_dir/platforms/android/app/build/outputs/apk/debug/app-debug.apk
+          name: calendario-apk
+          path: calendario/platforms/android/app/build/outputs/apk/**/*.apk
+          retention-days: 30
+
+      - name: Criar Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: Release ${{ github.ref }}
+          draft: false
+          prerelease: false
+
+      - name: Upload APK para Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: calendario/platforms/android/app/build/outputs/apk/release/app-release.apk
+          asset_name: calendario-${{ github.ref }}.apk
+          asset_content_type: application/vnd.android.package-archive
