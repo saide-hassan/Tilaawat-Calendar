@@ -1,0 +1,18 @@
+<?xml version='1.0' encoding='utf-8'?>
+<widget id="com.meuapp.projeto" version="1.0.0" xmlns="http://www.w3.org/ns/widgets">
+    <name>Khatmul-Qur'aan Calendar</name>
+    <description>Um calendário para ajudar a completar o Khatmul-Qu'aan em 30 dias.</description>
+    <author email="saidehassan5@gmai.com">Saide Hassan</author>
+    
+    <content src="index.html" />
+    
+    <icon src="icon.png" />
+
+    <preference name="AllowInlineMediaPlayback" value="false" />
+    <preference name="BackupWebStorage" value="cloud" />
+    <preference name="DisallowOverscroll" value="false" />
+    
+    <platform name="android">
+        <allow-intent href="market:*" />
+    </platform>
+</widget>
